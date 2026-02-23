@@ -1,0 +1,7 @@
+node_modules/
+.env
+
+# Lead data — keep off public repos
+leads/
+*.csv
+*.xlsx

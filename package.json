@@ -1,0 +1,16 @@
+{
+  "name": "leadseeds",
+  "version": "1.0.0",
+  "description": "LeadSeeds lead gen service",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "scrape": "node scraper.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
+    "nodemailer": "^6.9.13",
+    "playwright": "^1.58.2"
+  }
+}
