@@ -7,8 +7,5 @@
     "start": "node server.js",
     "scrape": "node scraper.js"
   },
-  "dependencies": {
-    "dotenv": "^16.4.5",
-    "nodemailer": "^6.9.13"
-  }
+  "dependencies": {}
 }
