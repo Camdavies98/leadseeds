@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const nodemailer = require('nodemailer');
 
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 8080;
 
 // Email transporter
 const transporter = nodemailer.createTransport({
