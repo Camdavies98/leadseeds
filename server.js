@@ -5,12 +5,6 @@ const path = require('path');
 const nodemailer = require('nodemailer');
 
 const PORT = process.env.PORT || 3000;
-const CSV_FILE = path.join(__dirname, 'leadseed_clients.csv');
-
-// CSV headers
-if (!fs.existsSync(CSV_FILE)) {
-  fs.writeFileSync(CSV_FILE, 'Full Name,Email,Business Type,Ideal Customer,Target Location,Signed Up At\n');
-}
 
 // Email transporter
 const transporter = nodemailer.createTransport({
@@ -95,19 +89,8 @@ const server = http.createServer((req, res) => {
           hour12: false,
         });
 
-        // Save to CSV
-        const escape = val => `"${String(val).replace(/"/g, '""')}"`;
-        const row = [escape(name), escape(email), escape(businessType), escape(idealCustomer), escape(location), escape(timestamp)].join(',') + '\n';
-        fs.appendFileSync(CSV_FILE, row);
-        console.log(`✅ New signup: ${name} <${email}>`);
-
-        // Send email notification
-        try {
-          await sendNotification({ name, email, businessType, idealCustomer, location, timestamp });
-          console.log(`📧 Notification sent for ${name}`);
-        } catch (emailErr) {
-          console.error('⚠️  Email failed (signup still saved):', emailErr.message);
-        }
+        await sendNotification({ name, email, businessType, idealCustomer, location, timestamp });
+        console.log(`✅ New signup emailed: ${name} <${email}>`);
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true }));
