@@ -66,6 +66,8 @@
     }
     .logo span { color: var(--green-light); }
 
+    .nav-mobile-cta { display: none; }
+
     .nav-links {
       display: flex;
       align-items: center;
@@ -654,14 +656,36 @@
 
     /* ── Responsive ── */
     @media (max-width: 900px) {
-      nav { padding: 16px 24px; }
+      nav { padding: 14px 20px; }
       nav ul { display: none; }
-      .container { padding: 0 24px; }
-      .hero { padding: 72px 0 56px; }
-      .how-grid { grid-template-columns: 1fr; }
-      .what-inner { grid-template-columns: 1fr; gap: 48px; }
-      .signup-inner { grid-template-columns: 1fr; gap: 48px; }
-      footer { flex-direction: column; gap: 12px; text-align: center; padding: 24px; }
+      .nav-mobile-cta { display: inline-flex !important; }
+      .container { padding: 0 20px; }
+      .hero { padding: 60px 0 48px; }
+      .hero-sub { font-size: 16px; }
+      .how { padding: 64px 0; }
+      .how-grid { grid-template-columns: 1fr; gap: 16px; }
+      .what { padding: 64px 0; }
+      .what-inner { grid-template-columns: 1fr; gap: 40px; }
+      .pricing { padding: 64px 0; }
+      .pricing-card { padding: 36px 24px; }
+      .price { font-size: 56px; }
+      .signup { padding: 64px 0; }
+      .signup-inner { grid-template-columns: 1fr; gap: 40px; }
+      .form-card { padding: 28px 20px; }
+      .lead-meta { font-size: 11px; }
+      footer { flex-direction: column; gap: 12px; text-align: center; padding: 24px 20px; }
+    }
+
+    @media (max-width: 480px) {
+      .hero h1 { letter-spacing: -1px; }
+      .hero-trust { gap: 12px; margin-top: 32px; }
+      .trust-item { font-size: 12px; }
+      .btn-lg { padding: 13px 22px; font-size: 15px; }
+      .lead-row { flex-direction: column; align-items: flex-start; gap: 6px; }
+      .lead-meta { word-break: break-all; }
+      .pricing-card { padding: 28px 16px; }
+      .price { font-size: 48px; }
+      .section-title { letter-spacing: -0.5px; }
     }
   </style>
 </head>
@@ -679,6 +703,7 @@
       <li><a href="#pricing">Pricing</a></li>
       <li><a href="#signup" class="btn">Get Started — £60/mo</a></li>
     </ul>
+    <a href="#signup" class="btn nav-mobile-cta">Get Started</a>
   </nav>
 
   <!-- Hero -->

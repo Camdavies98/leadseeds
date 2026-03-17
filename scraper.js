@@ -21,32 +21,68 @@ async function prompt(question) {
 
 async function findEmail(context, websiteUrl) {
   const page = await context.newPage();
-  try {
-    await page.goto(websiteUrl, { timeout: 12000, waitUntil: 'domcontentloaded' });
 
-    const mailtos = await page.$$eval('a[href^="mailto:"]', els =>
-      els.map(el => el.href.replace('mailto:', '').split('?')[0].trim())
-         .filter(e => e.includes('@') && !e.includes('example'))
+  const PREFERRED = ['info', 'contact', 'hello', 'enquiries', 'enquire', 'mail', 'email', 'support'];
+  const BLOCKED   = ['noreply', 'no-reply', 'donotreply', 'do-not-reply', 'example', 'wordpress'];
+
+  function rankEmails(emails) {
+    const valid = emails.filter(e =>
+      e.includes('@') && e.includes('.') &&
+      !BLOCKED.some(b => e.toLowerCase().includes(b))
     );
-    if (mailtos[0]) return mailtos[0];
+    const preferred = valid.filter(e => PREFERRED.some(p => e.toLowerCase().startsWith(p + '@')));
+    return preferred[0] || valid[0] || '';
+  }
 
-    const bodyText = await page.evaluate(() => document.body.innerText);
-    const hit = bodyText.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/);
-    if (hit) return hit[0];
+  async function extractFromPage(pg) {
+    const emails = new Set();
 
+    // 1. mailto: links
+    const mailtos = await pg.$$eval('a[href^="mailto:"]', els =>
+      els.map(el => el.href.replace('mailto:', '').split('?')[0].trim())
+    ).catch(() => []);
+    mailtos.forEach(e => emails.add(e.toLowerCase()));
+
+    // 2. Visible text
+    const text = await pg.evaluate(() => document.body.innerText).catch(() => '');
+    (text.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g) || [])
+      .forEach(e => emails.add(e.toLowerCase()));
+
+    // 3. HTML source — catches emails in data attributes, hidden spans, etc.
+    const html = await pg.evaluate(() => document.documentElement.innerHTML).catch(() => '');
+    (html.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g) || [])
+      .forEach(e => emails.add(e.toLowerCase()));
+
+    // 4. Obfuscation — e.g. "info [at] domain.com", "info(at)domain", "info AT domain DOT com"
+    const deobfuscated = text
+      .replace(/\s*\[at\]\s*/gi, '@').replace(/\s*\(at\)\s*/gi, '@').replace(/\s+AT\s+/g, '@')
+      .replace(/\s*\[dot\]\s*/gi, '.').replace(/\s*\(dot\)\s*/gi, '.');
+    (deobfuscated.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g) || [])
+      .forEach(e => emails.add(e.toLowerCase()));
+
+    return [...emails];
+  }
+
+  try {
     const base = new URL(websiteUrl).origin;
-    for (const slug of ['/contact', '/contact-us', '/get-in-touch', '/about']) {
+    const contactSlugs = [
+      '/contact', '/contact-us', '/get-in-touch', '/reach-us',
+      '/enquiries', '/enquire', '/hello', '/talk-to-us', '/about', '/about-us',
+    ];
+
+    // 1. Try contact pages first — most likely to have a public email
+    for (const slug of contactSlugs) {
       try {
         await page.goto(base + slug, { timeout: 8000, waitUntil: 'domcontentloaded' });
-        const cMailtos = await page.$$eval('a[href^="mailto:"]', els =>
-          els.map(el => el.href.replace('mailto:', '').split('?')[0].trim())
-        );
-        if (cMailtos[0]) return cMailtos[0];
-        const cText = await page.evaluate(() => document.body.innerText);
-        const cHit  = cText.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/);
-        if (cHit) return cHit[0];
+        const best = rankEmails(await extractFromPage(page));
+        if (best) return best;
       } catch { /* page not found */ }
     }
+
+    // 2. Fall back to homepage
+    await page.goto(websiteUrl, { timeout: 12000, waitUntil: 'domcontentloaded' });
+    return rankEmails(await extractFromPage(page));
+
   } catch { /* site unreachable */ }
   finally { await page.close(); }
   return '';
