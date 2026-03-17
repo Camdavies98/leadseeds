@@ -948,8 +948,8 @@
         });
 
         if (res.ok) {
-          this.style.display = 'none';
-          document.getElementById('successMsg').style.display = 'flex';
+          const { url } = await res.json();
+          window.location.href = url;
         } else {
           throw new Error('Server error');
         }
