@@ -80,6 +80,33 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // GET /checkout — direct to Stripe Checkout (used by Get Started buttons)
+  if (req.method === 'GET' && req.url === '/checkout') {
+    try {
+      const session = await stripe.checkout.sessions.create({
+        mode: 'subscription',
+        line_items: [{
+          price_data: {
+            currency: 'gbp',
+            unit_amount: 6000,
+            recurring: { interval: 'month' },
+            product_data: { name: 'LeadSeeds — 20 Verified Leads/Month' },
+          },
+          quantity: 1,
+        }],
+        success_url: `${BASE_URL}/success`,
+        cancel_url:  `${BASE_URL}/`,
+      });
+      res.writeHead(302, { Location: session.url });
+      res.end();
+    } catch (err) {
+      console.error('Checkout error:', err.message);
+      res.writeHead(500);
+      res.end('Something went wrong');
+    }
+    return;
+  }
+
   // GET /success — post-payment confirmation page
   if (req.method === 'GET' && req.url === '/success') {
     res.writeHead(200, { 'Content-Type': 'text/html' });
