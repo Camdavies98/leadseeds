@@ -4,6 +4,11 @@ const fs     = require('fs');
 const path   = require('path');
 const Stripe = require('stripe');
 
+if (!process.env.STRIPE_SECRET_KEY) {
+  console.error('ERROR: STRIPE_SECRET_KEY environment variable is not set.');
+  process.exit(1);
+}
+
 const stripe   = Stripe(process.env.STRIPE_SECRET_KEY);
 const PORT     = process.env.PORT || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
