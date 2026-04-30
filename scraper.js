@@ -37,26 +37,51 @@ async function findEmail(context, websiteUrl) {
   async function extractFromPage(pg) {
     const emails = new Set();
 
-    // 1. mailto: links
+    // 1. mailto: links — most reliable signal
     const mailtos = await pg.$$eval('a[href^="mailto:"]', els =>
       els.map(el => el.href.replace('mailto:', '').split('?')[0].trim())
     ).catch(() => []);
     mailtos.forEach(e => emails.add(e.toLowerCase()));
 
-    // 2. Visible text
+    // 2. Visible text (full page)
     const text = await pg.evaluate(() => document.body.innerText).catch(() => '');
     (text.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g) || [])
       .forEach(e => emails.add(e.toLowerCase()));
 
-    // 3. HTML source — catches emails in data attributes, hidden spans, etc.
+    // 3. HTML source — decode entities first, then scan data attributes, hidden spans, JS vars
     const html = await pg.evaluate(() => document.documentElement.innerHTML).catch(() => '');
-    (html.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g) || [])
+    const decodedHtml = html
+      .replace(/&#64;/g, '@').replace(/&#x40;/gi, '@').replace(/&commat;/gi, '@')
+      .replace(/&#46;/g,  '.').replace(/&#x2e;/gi, '.');
+    (decodedHtml.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g) || [])
       .forEach(e => emails.add(e.toLowerCase()));
 
-    // 4. Obfuscation — e.g. "info [at] domain.com", "info(at)domain", "info AT domain DOT com"
+    // 4. Footer-specific scan — footers almost always contain the contact email
+    const footerText = await pg.$$eval(
+      'footer, #footer, .footer, [id*="footer" i], [class*="footer" i], ' +
+      '[id*="contact" i], [class*="contact" i]',
+      els => els.map(el => el.innerText || '').join('\n')
+    ).catch(() => '');
+    (footerText.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g) || [])
+      .forEach(e => emails.add(e.toLowerCase()));
+
+    // 5. Obfuscation — normalise many common patterns before scanning
     const deobfuscated = text
-      .replace(/\s*\[at\]\s*/gi, '@').replace(/\s*\(at\)\s*/gi, '@').replace(/\s+AT\s+/g, '@')
-      .replace(/\s*\[dot\]\s*/gi, '.').replace(/\s*\(dot\)\s*/gi, '.');
+      // bracket variants: [at] (at) {at}
+      .replace(/\s*[\[({]\s*at\s*[\])}]\s*/gi, '@')
+      // plain spaced: info at domain, INFO AT DOMAIN
+      .replace(/\s+at\s+/gi, '@')
+      // bracket dot variants: [dot] (dot) {dot}
+      .replace(/\s*[\[({]\s*dot\s*[\])}]\s*/gi, '.')
+      // plain spaced dot: domain dot com, DOMAIN DOT COM
+      .replace(/\s+dot\s+/gi, '.')
+      // HTML entities (in case innerText didn't fully decode)
+      .replace(/&#64;/g, '@').replace(/&#x40;/gi, '@').replace(/&commat;/gi, '@')
+      .replace(/&#46;/g, '.').replace(/&#x2e;/gi, '.')
+      // spaced @ sign: info @ domain.com
+      .replace(/\s+@\s+/g, '@')
+      // spaced dot in domain: domain . com
+      .replace(/(\w)\s+\.\s+(\w)/g, '$1.$2');
     (deobfuscated.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g) || [])
       .forEach(e => emails.add(e.toLowerCase()));
 
@@ -67,7 +92,9 @@ async function findEmail(context, websiteUrl) {
     const base = new URL(websiteUrl).origin;
     const contactSlugs = [
       '/contact', '/contact-us', '/get-in-touch', '/reach-us',
-      '/enquiries', '/enquire', '/hello', '/talk-to-us', '/about', '/about-us',
+      '/enquiries', '/enquire', '/hello', '/talk-to-us',
+      '/about', '/about-us', '/our-story', '/who-we-are',
+      '/team', '/our-team', '/meet-the-team', '/staff', '/people',
     ];
 
     // 1. Try contact pages first — most likely to have a public email
@@ -99,6 +126,8 @@ async function findOwnerName(context, websiteUrl, businessName) {
       websiteUrl,
       `${base}/about`, `${base}/about-us`,
       `${base}/team`,  `${base}/our-team`, `${base}/meet-the-team`,
+      `${base}/contact`, `${base}/contact-us`,
+      `${base}/get-in-touch`, `${base}/reach-us`,
     ];
 
     for (const url of pages) {
