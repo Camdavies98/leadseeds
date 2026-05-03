@@ -3,6 +3,7 @@ const http   = require('http');
 const fs     = require('fs');
 const path   = require('path');
 const Stripe = require('stripe');
+const { Resend } = require('resend');
 
 if (!process.env.STRIPE_SECRET_KEY) {
   console.error('ERROR: STRIPE_SECRET_KEY environment variable is not set.');
@@ -10,6 +11,7 @@ if (!process.env.STRIPE_SECRET_KEY) {
 }
 
 const stripe   = Stripe(process.env.STRIPE_SECRET_KEY);
+const resend   = new Resend(process.env.RESEND_API_KEY);
 const PORT     = process.env.PORT || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
 
@@ -30,6 +32,17 @@ function saveSignup(data) {
   fs.appendFileSync(csvPath, row, 'utf8');
 }
 
+// ── Read raw body (for Stripe webhook signature verification) ─────────────────
+
+function readRawBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
 // ── Parse JSON body ───────────────────────────────────────────────────────────
 
 function readBody(req) {
@@ -47,6 +60,44 @@ function readBody(req) {
 // ── Server ────────────────────────────────────────────────────────────────────
 
 const server = http.createServer(async (req, res) => {
+
+  // POST /webhook — Stripe event listener
+  if (req.method === 'POST' && req.url === '/webhook') {
+    const sig = req.headers['stripe-signature'];
+    let event;
+    try {
+      const rawBody = await readRawBody(req);
+      event = stripe.webhooks.constructEvent(rawBody, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    } catch (err) {
+      console.error('Webhook signature verification failed:', err.message);
+      res.writeHead(400);
+      res.end(`Webhook Error: ${err.message}`);
+      return;
+    }
+
+    if (event.type === 'checkout.session.completed') {
+      const session  = event.data.object;
+      const name     = session.metadata?.name         || 'Unknown';
+      const email    = session.customer_email          || 'Unknown';
+      const bizType  = session.metadata?.businessType || 'Unknown';
+      const location = session.metadata?.location     || 'Unknown';
+
+      try {
+        await resend.emails.send({
+          from:    'onboarding@resend.dev',
+          to:      'camdavies000@gmail.com',
+          subject: `New LeadSeeds client: ${name}`,
+          text:    `New paying client!\n\nName: ${name}\nEmail: ${email}\nBusiness type: ${bizType}\nLocation: ${location}\n\nRun the scraper and send their first batch.`,
+        });
+      } catch (err) {
+        console.error('Failed to send notification email:', err.message);
+      }
+    }
+
+    res.writeHead(200);
+    res.end();
+    return;
+  }
 
   // POST /signup — save client details + redirect to Stripe Checkout
   if (req.method === 'POST' && req.url === '/signup') {
