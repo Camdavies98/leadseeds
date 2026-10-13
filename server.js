@@ -170,6 +170,20 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // GET /favicon.svg — modern browsers prefer this
+  if (req.method === 'GET' && req.url === '/favicon.svg') {
+    res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' });
+    res.end(fs.readFileSync(path.join(__dirname, 'favicon.svg')));
+    return;
+  }
+
+  // GET /favicon.ico — fallback for older browsers / tab bookmarks
+  if (req.method === 'GET' && req.url === '/favicon.ico') {
+    res.writeHead(200, { 'Content-Type': 'image/x-icon', 'Cache-Control': 'public, max-age=86400' });
+    res.end(fs.readFileSync(path.join(__dirname, 'favicon.ico')));
+    return;
+  }
+
   // Default — serve landing page
   res.writeHead(200, { 'Content-Type': 'text/html' });
   res.end(fs.readFileSync(path.join(__dirname, 'index.html')));
