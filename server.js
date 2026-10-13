@@ -110,9 +110,9 @@ const server = http.createServer(async (req, res) => {
         line_items: [{
           price_data: {
             currency: 'gbp',
-            unit_amount: 6000,  // £60.00
+            unit_amount: 5000,  // £50.00
             recurring: { interval: 'month' },
-            product_data: { name: 'LeadSeeds — 20 Verified Leads/Month' },
+            product_data: { name: 'LeadSeeds — 20 Verified Leads Per Week' },
           },
           quantity: 1,
         }],
@@ -144,9 +144,9 @@ const server = http.createServer(async (req, res) => {
         line_items: [{
           price_data: {
             currency: 'gbp',
-            unit_amount: 6000,
+            unit_amount: 5000,
             recurring: { interval: 'month' },
-            product_data: { name: 'LeadSeeds — 20 Verified Leads/Month' },
+            product_data: { name: 'LeadSeeds — 20 Verified Leads Per Week' },
           },
           quantity: 1,
         }],
